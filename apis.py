@@ -55,7 +55,7 @@ def register():
         return response
 
     except NotUniqueError as e:
-        response = {"message": "User already exists"}
+        response = {"message": "User already exists. Instead login"}
 
         return response
 
@@ -108,7 +108,7 @@ def get_all_template():
     user_json = User.objects(email__iexact= access_token_decoded["email"])[0].to_json()
     user_templates = json.loads(user_json)["template"]
 
-    response = {"data": json.dumps(user_templates)}
+    response = {"data": user_templates}
 
     return response
 
@@ -121,9 +121,9 @@ def get_template(template_id):
     access_token_decoded = jwt.decode(user_access_token, key=app.config["SECRET_KEY"], algorithms=["HS256"])
     
     user_json = User.objects(email__iexact= access_token_decoded["email"])[0].to_json()
-    user_template = json.loads(user_json)["template"][int(template_id)]
+    user_template = json.loads(user_json)["template"][int(template_id) - 1]
     
-    response = {"data": json.dumps(user_template)}
+    response = {"data": user_template}
     
     return response
 
@@ -137,7 +137,7 @@ def update_template(template_id):
     access_token_decoded = jwt.decode(user_access_token, key=app.config["SECRET_KEY"], algorithms=["HS256"])
     
     template_to_update = User.objects(email__iexact= access_token_decoded["email"]).first()
-    template_updated = template_to_update["template"][int(template_id)]
+    template_updated = template_to_update["template"][int(template_id) - 1]
     template_updated["template_name"] = update["template_name"]
     template_updated["subject"] = update["subject"]
     template_updated["body"] = update["body"]
@@ -145,7 +145,7 @@ def update_template(template_id):
 
     template_json = json.loads(template_to_update.to_json())["template"]
     
-    response = {"message": "The template has been updated successfully", "data": json.dumps(template_json)}
+    response = {"message": "The template has been updated successfully", "data": template_json}
 
     return response
 
@@ -158,7 +158,7 @@ def delete_template(template_id):
     access_token_decoded = jwt.decode(user_access_token, key=app.config["SECRET_KEY"], algorithms=["HS256"])
     
     template_to_delete = User.objects(email__iexact= access_token_decoded["email"]).first()
-    del template_to_delete["template"][int(template_id)]
+    del template_to_delete["template"][int(template_id) - 1]
     template_to_delete.save()
     
     response = {"message": "The template has been deleted successfully"}
