@@ -29,9 +29,12 @@ class User(ME.Document):
     template = ME.EmbeddedDocumentListField(Templates)
 
 
+@app.get("/")
+def home():
+    return """<div style="text-align: center; padding: 200px; color: gray; border: 1px dotted green;">Welcome To Slovi Interview Api Staging</div>"""
 
 @app.post("/register/")
-def home():
+def register():
     userData = request.json
 
     try:
