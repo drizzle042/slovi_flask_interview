@@ -50,7 +50,7 @@ def register():
         
         access_token = jwt.encode(payload={"email": user[0]["email"], "password": user[0]["password"]}, key=app.config["SECRET_KEY"], algorithm="HS256")
 
-        response = {"access-token": access_token}
+        response = {"accessToken": access_token}
 
         return response
 
@@ -67,7 +67,7 @@ def login():
 
         access_token = jwt.encode(payload={"email": user[0]["email"], "password": user[0]["password"]}, key=app.config["SECRET_KEY"], algorithm="HS256")
 
-        response = {"access-token": access_token}
+        response = {"accessToken": access_token}
 
         return response
 
