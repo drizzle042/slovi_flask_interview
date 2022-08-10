@@ -1,4 +1,4 @@
-from flask import Flask
+from flask import Flask, request
 from flask_mongoengine import MongoEngine
 import mongoengine as ME
 import json
@@ -30,14 +30,9 @@ class User(ME.Document):
 
 
 
-@app.get("/register/")
+@app.post("/register/")
 def home():
-    userData = {
-                "first_name" : 'Canon',
-                "last_name" : 'Me',
-                "email" : 'canon@subi.com',
-                "password" : 'hello world!'
-              }
+    userData = request.json
 
     try:
         user_registrar = User()
@@ -52,44 +47,37 @@ def home():
         
         access_token = jwt.encode(payload={"email": user[0]["email"], "password": user[0]["password"]}, key=app.config["SECRET_KEY"], algorithm="HS256")
 
-        response = f"""<div style="text-align: center; padding: 200px; margin: 20px; border: 1px dotted green; color: green;">You have been registered successfully. This is your access token \n {access_token}</div>"""
+        response = {"access-token": access_token}
 
         return response
 
     except NotUniqueError as e:
-        response = f"""<div style="text-align: center; padding: 200px; margin: 20px; border: 1px dotted red;color: red;">User already exists</div>"""
+        response = {"message": "User already exists"}
 
         return response
 
-@app.get("/login/")
+@app.post("/login/")
 def login():
-    credentials = {
-                "email" : "andrewgarfield@subi.com",
-                "password" : 'hello world!'
-              }  
+    credentials = request.json
     try:
         user = User.objects(email__iexact= credentials["email"], password__exact= credentials['password'])
 
         access_token = jwt.encode(payload={"email": user[0]["email"], "password": user[0]["password"]}, key=app.config["SECRET_KEY"], algorithm="HS256")
 
-        response = f"""<div style="text-align: center; padding: 200px; margin: 20px; border: 1px dotted green; color: green;">You have been loggedin successfully. <br>Your access-token is <br><h1 style="text-align: center;">{access_token}</h1></div>"""
+        response = {"access-token": access_token}
 
         return response
 
     except IndexError as e:
-        response = f"""<div style="text-align: center; padding: 200px; margin: 20px; border: 1px dotted red;color: red;">Could not log you in. Please check your email and password</div>"""
+        response = {"message": "Could not log you in. Please check your email and password"}
 
         return response
 
-@app.get("/template/")
+@app.post("/template/")
 def create_template():
-    templateData =  {
-                    'template_name': 'Check this out',
-                    'subject': 'It will work',
-                    'body': "Hello World, I'm back again",
-                }
+    templateData =  request.json
 
-    user_access_token = "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJlbWFpbCI6ImFuZHJld2dhcmZpZWxkQHN1YmkuY29tIiwicGFzc3dvcmQiOiJoZWxsbyB3b3JsZCEifQ.zdmCaX1IYzk2VNIJeB5ysM_feOqfaC42qWGLUfSozlQ"
+    user_access_token = request.headers.get("Authorization").split()[1]
 
     access_token_decoded = jwt.decode(user_access_token, key=app.config["SECRET_KEY"], algorithms=["HS256"])
 
@@ -103,21 +91,21 @@ def create_template():
     userTemplateAdd["template"].append(template)
     userTemplateAdd.save()
 
-    response = f"""<div style="text-align: center; padding: 200px; margin: 20px; border: 1px dotted green; color: green;">Template was created successfully</div>"""
+    response = {"message": "Template was added successfully"}
 
     return response
 
-@app.get("/template/get")
+@app.get("/template")
 def get_all_template():
     
-    user_access_token = "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJlbWFpbCI6ImFuZHJld2dhcmZpZWxkQHN1YmkuY29tIiwicGFzc3dvcmQiOiJoZWxsbyB3b3JsZCEifQ.zdmCaX1IYzk2VNIJeB5ysM_feOqfaC42qWGLUfSozlQ"
+    user_access_token = request.headers.get("Authorization").split()[1]
 
     access_token_decoded = jwt.decode(user_access_token, key=app.config["SECRET_KEY"], algorithms=["HS256"])
 
     user_json = User.objects(email__iexact= access_token_decoded["email"])[0].to_json()
     user_templates = json.loads(user_json)["template"]
 
-    response = f"""<div style="text-align: center; padding: 200px; margin: 20px; border: 1px dotted green; color: green;">{json.dumps(user_templates)}</div>"""
+    response = {"data": json.dumps(user_templates)}
 
     return response
 
@@ -125,27 +113,23 @@ def get_all_template():
 @app.get("/template/<template_id>")
 def get_template(template_id):
     
-    user_access_token = "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJlbWFpbCI6ImFuZHJld2dhcmZpZWxkQHN1YmkuY29tIiwicGFzc3dvcmQiOiJoZWxsbyB3b3JsZCEifQ.zdmCaX1IYzk2VNIJeB5ysM_feOqfaC42qWGLUfSozlQ"
+    user_access_token = request.headers.get("Authorization").split()[1]
     
     access_token_decoded = jwt.decode(user_access_token, key=app.config["SECRET_KEY"], algorithms=["HS256"])
     
     user_json = User.objects(email__iexact= access_token_decoded["email"])[0].to_json()
     user_template = json.loads(user_json)["template"][int(template_id)]
     
-    response = f"""<div style="text-align: center; padding: 200px; margin: 20px; border: 1px dotted green; color: green;">{json.dumps(user_template)}</div>"""
+    response = {"data": json.dumps(user_template)}
     
     return response
 
 
-@app.get("/template/update/<template_id>")
+@app.put("/template/<template_id>")
 def update_template(template_id):
-    update = {
-                    'template_name': 'All with GOD',
-                    'subject': 'Marvel',
-                    'body': 'GOD Almighty',
-                }   
+    update = request.json
     
-    user_access_token = "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJlbWFpbCI6ImNhbm9uQHN1YmkuY29tIiwicGFzc3dvcmQiOiJoZWxsbyB3b3JsZCEifQ.U314zp2qaGe-fE5BJTan33fSAoKX39k9GKsTlUwOxmw"
+    user_access_token = request.headers.get("Authorization").split()[1]
     
     access_token_decoded = jwt.decode(user_access_token, key=app.config["SECRET_KEY"], algorithms=["HS256"])
     
@@ -158,15 +142,15 @@ def update_template(template_id):
 
     template_json = json.loads(template_to_update.to_json())["template"]
     
-    response = f"""<div style="text-align: center; padding: 200px; margin: 20px; border: 1px dotted green; color: green;">The template has been updated successfully <br>   {json.dumps(template_json)}</div>"""
+    response = {"message": "The template has been updated successfully", "data": json.dumps(template_json)}
 
     return response
 
 
-@app.get("/template/delete/<template_id>")
+@app.delete("/template/<template_id>")
 def delete_template(template_id):
 
-    user_access_token = "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJlbWFpbCI6ImFuZHJld2dhcmZpZWxkQHN1YmkuY29tIiwicGFzc3dvcmQiOiJoZWxsbyB3b3JsZCEifQ.zdmCaX1IYzk2VNIJeB5ysM_feOqfaC42qWGLUfSozlQ"
+    user_access_token = request.headers.get("Authorization").split()[1]
     
     access_token_decoded = jwt.decode(user_access_token, key=app.config["SECRET_KEY"], algorithms=["HS256"])
     
@@ -174,9 +158,7 @@ def delete_template(template_id):
     del template_to_delete["template"][int(template_id)]
     template_to_delete.save()
     
-    template_json = json.loads(template_to_delete.to_json())["template"]
-    
-    response = f"""<div style="text-align: center; padding: 200px; margin: 20px; border: 1px dotted green; color: green;">The template has been deleted successfully</div>"""
+    response = {"message": "The template has been deleted successfully"}
     
     return response
 
