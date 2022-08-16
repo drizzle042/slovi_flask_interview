@@ -2,8 +2,9 @@ from flask import Flask, request
 from flask_mongoengine import MongoEngine
 import mongoengine as ME
 import json
-from mongoengine.errors import NotUniqueError
+from mongoengine.errors import NotUniqueError, DoesNotExist
 import jwt
+from bson.objectid import ObjectId
 
 app = Flask(__name__)
 # Configuration with MongoEngine
@@ -17,6 +18,7 @@ app.config["SECRET_KEY"] = "26cfb735340e889d6ec3a08b5b07e5576ba47fb45eca0152cab9
 
 # DB models
 class Templates(ME.EmbeddedDocument):
+    template_id = ME.ObjectIdField(required=True, default=ObjectId, unique=True, primary_key=True)
     template_name = ME.StringField(required=True)
     subject = ME.StringField()
     body = ME.StringField()
@@ -55,7 +57,7 @@ def register():
         return response
 
     except NotUniqueError as e:
-        response = {"message": "User already exists. Instead login"}
+        response = {"message": "User already exists. Login Instead"}
 
         return response
 
@@ -98,14 +100,14 @@ def create_template():
 
     return response
 
-@app.get("/template")
-def get_all_template():
+@app.get("/template/")
+def get_all_templates():
     
     user_access_token = request.headers.get("Authorization").split()[1]
 
     access_token_decoded = jwt.decode(user_access_token, key=app.config["SECRET_KEY"], algorithms=["HS256"])
 
-    user_json = User.objects(email__iexact= access_token_decoded["email"])[0].to_json()
+    user_json = User.objects(email__iexact= access_token_decoded["email"]).first().to_json()
     user_templates = json.loads(user_json)["template"]
 
     response = {"data": user_templates}
@@ -113,57 +115,67 @@ def get_all_template():
     return response
 
 
-@app.get("/template/<template_id>")
+@app.get("/template/<template_id>/")
 def get_template(template_id):
     
     user_access_token = request.headers.get("Authorization").split()[1]
     
     access_token_decoded = jwt.decode(user_access_token, key=app.config["SECRET_KEY"], algorithms=["HS256"])
     
-    user_json = User.objects(email__iexact= access_token_decoded["email"])[0].to_json()
-    user_template = json.loads(user_json)["template"][int(template_id) - 1]
+    user = User.objects.filter(email__iexact = access_token_decoded["email"]).first()
+    user_template = user.template.get(template_id = template_id)
     
     response = {"data": user_template}
     
     return response
 
 
-@app.put("/template/<template_id>")
+@app.put("/template/<template_id>/")
 def update_template(template_id):
-    update = request.json
+    template_update = request.json
     
     user_access_token = request.headers.get("Authorization").split()[1]
     
     access_token_decoded = jwt.decode(user_access_token, key=app.config["SECRET_KEY"], algorithms=["HS256"])
     
-    template_to_update = User.objects(email__iexact= access_token_decoded["email"]).first()
-    template_updated = template_to_update["template"][int(template_id) - 1]
-    template_updated["template_name"] = update["template_name"]
-    template_updated["subject"] = update["subject"]
-    template_updated["body"] = update["body"]
-    template_to_update.save()
+    user = User.objects.filter(email__iexact = access_token_decoded["email"]).first()
+    user_template = user.template.get(template_id = template_id)
 
-    template_json = json.loads(template_to_update.to_json())["template"]
+    user_template["template_name"] = template_update["template_name"]
+    user_template["subject"] = template_update["subject"]
+    user_template["body"] = template_update["body"]
+    user.save()
+
+    template_json = json.loads(user.to_json())
     
-    response = {"message": "The template has been updated successfully", "data": template_json}
+    response = {"message": "The template has been updated successfully"}
 
     return response
 
 
-@app.delete("/template/<template_id>")
+@app.delete("/template/<template_id>/")
 def delete_template(template_id):
 
     user_access_token = request.headers.get("Authorization").split()[1]
     
     access_token_decoded = jwt.decode(user_access_token, key=app.config["SECRET_KEY"], algorithms=["HS256"])
     
-    template_to_delete = User.objects(email__iexact= access_token_decoded["email"]).first()
-    del template_to_delete["template"][int(template_id) - 1]
-    template_to_delete.save()
+    user = User.objects.filter(email__iexact = access_token_decoded["email"]).first()
+
+    try:
+        user_template = user.template.get(template_id = template_id)
+        user.template.remove(user_template)
+        user.save()
     
-    response = {"message": "The template has been deleted successfully"}
+        response = {"message": "The template has been deleted successfully"}
+
+        return response
+
+    except DoesNotExist as e:
+        response = {"message": "The template you tried to delete does not exist. Try one the following, check that the template actually exists. If it does, try running the operation again. Else, try deleting another template."}
+
+        return response
     
-    return response
 
 
 if __name__=="__main__":
